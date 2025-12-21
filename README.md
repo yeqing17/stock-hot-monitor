@@ -80,6 +80,23 @@ XUEQIU_TOKEN = "your_token"
 - **Pandas** - 数据处理
 - **pywencai** - 同花顺问财接口
 
+## 部署到 Streamlit Cloud
+
+1. Fork 或克隆本仓库到你的 GitHub
+2. 访问 [share.streamlit.io](https://share.streamlit.io) 并登录 GitHub
+3. 点击 "New app"，选择仓库 `stock-hot-monitor`
+4. Main file 填写 `app.py`
+5. 点击 "Advanced settings"：
+   - Python 版本选择 `3.11` 或 `3.12`
+   - 在 Secrets 中配置雪球 Token：
+     ```toml
+     XUEQIU_U = "your_u_value"
+     XUEQIU_TOKEN = "your_token"
+     ```
+6. 点击 "Deploy" 开始部署
+
+部署完成后会获得一个公网访问地址。
+
 ## 数据来源
 
 - 雪球：https://xueqiu.com
