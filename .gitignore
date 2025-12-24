@@ -24,3 +24,7 @@ Thumbs.db
 
 # Streamlit secrets only
 # config.toml should be committed
+
+
+# Local startup script
+start.bat

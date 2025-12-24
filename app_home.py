@@ -65,24 +65,57 @@ def fetch_eastmoney_top15():
 
 @st.cache_data(ttl=120)
 def fetch_tonghuashun_top15():
+    """使用同花顺官方 API 获取热股榜，并补充涨跌幅数据"""
     try:
-        import pywencai
-        df = pywencai.get(query='热门个股排名', loop=True)
-        if isinstance(df, pd.DataFrame) and not df.empty:
-            name_col = chg_col = None
-            for col in df.columns:
-                if '股票简称' in col or '名称' in col:
-                    name_col = col
-                elif '涨跌幅' in col:
-                    chg_col = col
-            if name_col:
-                result = []
-                for i, row in df.head(15).iterrows():
-                    result.append({'name': row[name_col] if name_col else '', 'chg': row[chg_col] if chg_col else 0})
-                return result
+        # 获取热股榜
+        url = "https://dq.10jqka.com.cn/fuyao/hot_list_data/out/hot_list/v1/stock"
+        params = {'stock_type': 'a', 'type': 'hour', 'list_type': 'normal'}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.10jqka.com.cn/'}
+        
+        r = requests.get(url, params=params, headers=headers, timeout=10)
+        data = r.json()
+        
+        if data.get('status_code') == 0 and data.get('data'):
+            stocks = data['data'].get('stock_list', [])[:15]
+            codes = [s.get('code', '') for s in stocks]
+            
+            # 获取涨跌幅数据
+            chg_map = get_stock_changes(codes)
+            
+            return [{'name': s.get('name', ''), 'chg': chg_map.get(s.get('code', ''), 0)} for s in stocks]
     except:
         pass
     return []
+
+def get_stock_changes(codes):
+    """从东方财富接口获取股票涨跌幅"""
+    if not codes:
+        return {}
+    try:
+        # 构建 secids
+        secids = []
+        for code in codes:
+            if code.startswith('6'):
+                secids.append(f"1.{code}")
+            else:
+                secids.append(f"0.{code}")
+        
+        url = "https://push2.eastmoney.com/api/qt/ulist.np/get"
+        params = {'fltt': '2', 'fields': 'f3,f12', 'secids': ','.join(secids)}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://quote.eastmoney.com/'}
+        
+        r = requests.get(url, params=params, headers=headers, timeout=10)
+        data = r.json()
+        
+        result = {}
+        if data.get('data', {}).get('diff'):
+            for item in data['data']['diff']:
+                code = item.get('f12', '')
+                chg = item.get('f3', 0)
+                result[code] = chg
+        return result
+    except:
+        return {}
 
 def render_stock_table(data):
     if not data:

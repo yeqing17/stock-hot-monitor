@@ -23,7 +23,7 @@
 ### 安装依赖
 
 ```bash
-pip install streamlit requests pandas plotly pywencai
+pip install streamlit requests pandas plotly
 ```
 
 ### 运行
@@ -48,11 +48,12 @@ streamlit run app.py
 │   ├── xueqiu.ico
 │   ├── eastmoney.ico
 │   └── iwencai.ico
-├── standalone/            # 独立运行版本（备份）
+├── standalone/            # 独立运行版本
+├── deploy/                # 服务器部署脚本
 ├── custom_keywords.txt    # 自定义关键词配置
 ├── .streamlit/
 │   ├── config.toml        # Streamlit 配置
-│   └── secrets.toml       # 密钥配置
+│   └── secrets.toml       # 密钥配置（不提交）
 └── README.md
 ```
 
@@ -78,30 +79,36 @@ XUEQIU_TOKEN = "your_token"
 - **Streamlit** - Web 框架
 - **Plotly** - 可视化图表
 - **Pandas** - 数据处理
-- **pywencai** - 同花顺问财接口
+- **Requests** - HTTP 请求
 
-## 部署到 Streamlit Cloud
+## 部署
 
-1. Fork 或克隆本仓库到你的 GitHub
+### Streamlit Cloud（国外）
+
+1. Fork 本仓库到你的 GitHub
 2. 访问 [share.streamlit.io](https://share.streamlit.io) 并登录 GitHub
-3. 点击 "New app"，选择仓库 `stock-hot-monitor`
-4. Main file 填写 `app.py`
-5. 点击 "Advanced settings"：
-   - Python 版本选择 `3.11` 或 `3.12`
-   - 在 Secrets 中配置雪球 Token：
-     ```toml
-     XUEQIU_U = "your_u_value"
-     XUEQIU_TOKEN = "your_token"
-     ```
-6. 点击 "Deploy" 开始部署
+3. 选择仓库，Main file 填写 `app.py`
+4. 在 Advanced settings → Secrets 中配置雪球 Token
+5. 点击 Deploy
 
-部署完成后会获得一个公网访问地址。
+> 注意：Streamlit Cloud 服务器在国外，同花顺数据可能无法获取
+
+### 国内服务器部署
+
+推荐使用阿里云/腾讯云轻量服务器（2核2G 即可）
+
+```bash
+# SSH 登录服务器后执行一键部署
+curl -fsSL https://raw.githubusercontent.com/yeqing17/stock-hot-monitor/main/deploy/install.sh | bash
+```
+
+详细部署说明见 [deploy/README.md](deploy/README.md)
 
 ## 数据来源
 
 - 雪球：https://xueqiu.com
 - 东方财富：https://guba.eastmoney.com
-- 同花顺：https://www.iwencai.com
+- 同花顺：https://10jqka.com.cn
 - 百度热搜：https://top.baidu.com
 
 ## 免责声明

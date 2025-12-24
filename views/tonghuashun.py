@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import pywencai
+import requests
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -30,54 +30,85 @@ L = {
 
 @st.cache_data(ttl=300)
 def fetch_data():
+    """使用同花顺官方 API 获取热股榜，并补充涨跌幅数据"""
     try:
-        df = pywencai.get(query='热门个股排名', loop=True)
-        if isinstance(df, pd.DataFrame) and not df.empty:
-            # 打印列名用于调试
-            print("返回的列名:", df.columns.tolist())
-            print("数据类型:", df.dtypes)
-            return df, time.strftime('%Y-%m-%d %H:%M:%S')
+        url = "https://dq.10jqka.com.cn/fuyao/hot_list_data/out/hot_list/v1/stock"
+        params = {'stock_type': 'a', 'type': 'hour', 'list_type': 'normal'}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.10jqka.com.cn/'}
+        
+        r = requests.get(url, params=params, headers=headers, timeout=10)
+        data = r.json()
+        
+        if data.get('status_code') == 0 and data.get('data'):
+            stocks = data['data'].get('stock_list', [])
+            if stocks:
+                df = pd.DataFrame(stocks)
+                codes = df['code'].tolist()
+                
+                # 保存原始热度值
+                df['hot_value'] = df['rate'].astype(float)
+                
+                # 获取涨跌幅和现价数据
+                quote_map = get_stock_quotes(codes)
+                df['rate'] = df['code'].map(lambda x: quote_map.get(x, {}).get('chg', 0))
+                df['new_price'] = df['code'].map(lambda x: quote_map.get(x, {}).get('price', 0))
+                
+                return df, time.strftime('%Y-%m-%d %H:%M:%S')
         return None, None
     except Exception as e:
         st.error(f"获取数据失败: {e}")
         return None, None
 
+def get_stock_quotes(codes):
+    """从东方财富接口获取股票涨跌幅和现价"""
+    if not codes:
+        return {}
+    try:
+        secids = []
+        for code in codes:
+            if code.startswith('6'):
+                secids.append(f"1.{code}")
+            else:
+                secids.append(f"0.{code}")
+        
+        url = "https://push2.eastmoney.com/api/qt/ulist.np/get"
+        params = {'fltt': '2', 'fields': 'f2,f3,f12', 'secids': ','.join(secids)}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://quote.eastmoney.com/'}
+        
+        r = requests.get(url, params=params, headers=headers, timeout=10)
+        data = r.json()
+        
+        result = {}
+        if data.get('data', {}).get('diff'):
+            for item in data['data']['diff']:
+                code = item.get('f12', '')
+                result[code] = {'chg': item.get('f3', 0), 'price': item.get('f2', 0)}
+        return result
+    except:
+        return {}
+
 
 def normalize_columns(df):
-    """标准化列名，适配不同返回格式"""
-    # 先重置索引，确保数据结构正确
+    """标准化列名 - 适配同花顺官方 API + 东方财富涨跌幅"""
     df = df.reset_index(drop=True)
     
-    # 根据实际返回的列名进行精确映射
-    col_map = {}
-    used_targets = set()
+    # 列名映射
+    col_map = {
+        'code': 'Code',
+        'name': 'Name',
+        'new_price': 'Price',
+        'rate': 'Chg%',
+        'order': 'Rank',
+        'hot_value': 'Hot',
+    }
     
-    for col in df.columns:
-        target = None
-        if col == '股票代码':
-            target = 'Code'
-        elif col == '股票简称':
-            target = 'Name'
-        elif col == '最新价':
-            target = 'Price'
-        elif '涨跌幅' in col:
-            target = 'Chg%'
-        elif '个股热度排名' in col:
-            target = 'Rank'
-        elif '个股热度' in col and '排名' not in col:
-            target = 'Hot'
-        
-        if target and target not in used_targets:
-            col_map[col] = target
-            used_targets.add(target)
-    
-    df = df.rename(columns=col_map)
+    df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
     
     # 如果没有 Rank 列，根据行号生成排名
     if 'Rank' not in df.columns:
         df['Rank'] = range(1, len(df) + 1)
     
-    # 只保留需要的列，排名放第一列
+    # 只保留需要的列
     keep_cols = ['Rank', 'Code', 'Name', 'Price', 'Chg%', 'Hot']
     df = df[[c for c in keep_cols if c in df.columns]]
     
