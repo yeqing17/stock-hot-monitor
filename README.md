@@ -70,6 +70,19 @@ XUEQIU_TOKEN = "your_token"
 
 或设置环境变量 `XUEQIU_U` 和 `XUEQIU_TOKEN`
 
+> ⚠️ **Token 过期提醒**
+>
+> 雪球的 Token 会定期过期，通常表现为：
+> - 雪球热股页面无法获取数据
+> - 显示 "Failed to fetch data" 错误
+>
+> 当出现以上情况时，需要更新 Token：
+> 1. 浏览器登录雪球网站 (https://xueqiu.com)
+> 2. 打开浏览器开发者工具 (F12) → Application/存储 → Cookies
+> 3. 查找名为 `u` 和 `xq_a_token` 的 Cookie 值
+> 4. 将对应值更新到 `.streamlit/secrets.toml` 或环境变量中
+> 5. 重启应用使配置生效
+
 ### 自定义关键词
 
 热搜监控页面支持自定义关键词，配置保存在 `custom_keywords.txt`

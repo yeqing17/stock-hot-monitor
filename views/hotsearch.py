@@ -106,19 +106,29 @@ def fetch_baidu_hot():
         data = r.json()
         
         if data.get('data') and data['data'].get('cards'):
-            items = data['data']['cards'][0].get('content', [])
-            for i, item in enumerate(items[:50]):
+            # 百度API数据结构嵌套：cards[0].content[0].content 才是热搜列表
+            cards_content = data['data']['cards'][0].get('content', [])
+            items = cards_content[0].get('content', []) if cards_content else []
+            rank = 1
+            for item in items[:50]:
                 title = item.get('word', '') or item.get('query', '')
-                hot = item.get('hotScore', 0)
+                # 百度没有热度值，使用标签代替
+                tags = []
+                if item.get('newHotName'):
+                    tags.append(item['newHotName'])
+                if item.get('labelTagName'):
+                    tags.append(item['labelTagName'])
+                hot = ' '.join(tags) if tags else '-'
                 url_link = item.get('url', f"https://www.baidu.com/s?wd={title}")
                 if title:
                     results.append({
-                        'rank': i + 1,
+                        'rank': rank,
                         'title': title,
                         'hot': hot,
                         'url': url_link,
                         'source': '百度'
                     })
+                    rank += 1
     except Exception as e:
         print(f"百度热搜失败: {e}")
     return results
@@ -247,11 +257,11 @@ def main():
         
         sources = st.multiselect(
             L["source"],
-            ["百度", "微博", "抖音", "头条", "知乎"],
-            default=["百度"]  # 默认只选百度，因为其他平台可能有反爬限制
+            ["百度", "头条"],
+            default=["百度", "头条"]  # 只保留可用的平台
         )
-        
-        st.caption("💡 部分平台可能因反爬限制无法获取数据")
+
+        st.caption("💡 目前仅支持百度和今日头条热搜")
         
         st.divider()
         
@@ -328,8 +338,9 @@ def display_items(items):
     
     df = pd.DataFrame(items)
     if 'hot' in df.columns:
-        df['hot'] = pd.to_numeric(df['hot'], errors='coerce').fillna(0)
-        df['hot_fmt'] = df['hot'].apply(lambda x: f"{x:,.0f}" if x > 0 else "-")
+        # 如果 hot 是数字，格式化为带逗号的数字
+        # 如果 hot 是字符串（如"热"、"新"、"热议"），直接使用
+        df['hot_fmt'] = df['hot'].apply(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) and x > 0 else (str(x) if x and x != '-' else '-'))
     
     cols = ['rank', 'title', 'keyword', 'hot_fmt', 'source', 'url']
     cols = [c for c in cols if c in df.columns]
